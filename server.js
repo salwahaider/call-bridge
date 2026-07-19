@@ -144,10 +144,10 @@ function createRoom(roomId, targetScore) {
     tricks: [],
     trickCounts: { N: 0, E: 0, S: 0, W: 0 },
     currentPlayer: null,
-    // Scores stored as integers (actual_score * 10 to handle 0.1 overtricks)
     scores: { N: 0, E: 0, S: 0, W: 0 },
     roundNumber: 0,
     gameOver: false,
+    disconnectedPlayers: {}, // name → position, for mid-game rejoin
   };
 }
 
@@ -183,8 +183,13 @@ io.on('connection', (socket) => {
   socket.on('join-room', ({ roomId, name }) => {
     const room = rooms[roomId.toUpperCase()];
     if (!room) return socket.emit('error', { message: 'Room not found' });
+    // Allow rejoining a game in progress if the player was previously in it
+    if (room.phase !== 'waiting') {
+      const prevPos = room.disconnectedPlayers[name];
+      if (prevPos !== undefined) return rejoinActiveGame(socket, room, name, prevPos);
+      return socket.emit('error', { message: 'Game already in progress' });
+    }
     if (Object.keys(room.players).length >= 4) return socket.emit('error', { message: 'Room is full' });
-    if (room.phase !== 'waiting') return socket.emit('error', { message: 'Game already in progress' });
     joinRoom(socket, roomId.toUpperCase(), name);
   });
 
@@ -200,7 +205,8 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room || room.phase !== 'calling') return;
     const player = room.players[socket.id];
-    if (!player || player.position !== room.callingPlayer) return;
+    if (!player) return;
+    if (room.calls[player.position] !== null) return; // already bid
     const n = parseInt(tricks);
     if (isNaN(n) || n < 2 || n > 13) return socket.emit('error', { message: 'Minimum call is 2' });
     processCall(room, player.position, n);
@@ -235,6 +241,23 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('chat', { name: player.name, position: player.position, message });
   });
 
+  // Client requests current room state (e.g. tab becomes active after being backgrounded)
+  socket.on('request-room-state', ({ roomId }) => {
+    const room = rooms[roomId];
+    if (room) socket.emit('room-update', getRoomState(room));
+  });
+
+  // Rejoin after socket reconnects (mobile background tab disconnect)
+  socket.on('rejoin-room', ({ roomId, name, position }) => {
+    const room = rooms[roomId];
+    if (!room) return socket.emit('error', { message: 'Room not found' });
+    if (!room.positions[position]) {
+      rejoinActiveGame(socket, room, name, position);
+    } else {
+      socket.emit('room-update', getRoomState(room));
+    }
+  });
+
   socket.on('disconnect', () => {
     for (const roomId in rooms) {
       const room = rooms[roomId];
@@ -242,6 +265,10 @@ io.on('connection', (socket) => {
         const player = room.players[socket.id];
         room.positions[player.position] = null;
         delete room.players[socket.id];
+        // Save for mid-game rejoin (not needed in waiting room)
+        if (room.phase !== 'waiting') {
+          room.disconnectedPlayers[player.name] = player.position;
+        }
         io.to(roomId).emit('player-left', { name: player.name, position: player.position });
         io.to(roomId).emit('room-update', getRoomState(room));
         if (Object.keys(room.players).length === 0) delete rooms[roomId];
@@ -250,6 +277,24 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+function rejoinActiveGame(socket, room, name, position) {
+  room.positions[position] = socket.id;
+  room.players[socket.id] = { id: socket.id, name, position };
+  delete room.disconnectedPlayers[name];
+  socket.join(room.id);
+  socket.emit('joined', { roomId: room.id, position, name });
+  // Send their current hand so they can see their cards
+  if (room.hands && room.hands[position]) {
+    socket.emit('rejoin-game', {
+      hand: room.hands[position],
+      roundNumber: room.roundNumber,
+      targetScore: room.targetScore,
+    });
+  }
+  io.to(room.id).emit('player-joined-back', { name, position });
+  io.to(room.id).emit('room-update', getRoomState(room));
+}
 
 function joinRoom(socket, roomId, name) {
   const room = rooms[roomId];
@@ -286,9 +331,10 @@ function startGame(room) {
     room.callingPlayer = null;
     room.currentPlayer = firstLeader;
   } else {
+    // Simultaneous bidding — callingPlayer is null, everyone bids at once
     room.phase = 'calling';
-    room.callingPlayer = firstLeader;
-    room.currentPlayer = firstLeader;
+    room.callingPlayer = null;
+    room.currentPlayer = null;
   }
 
   for (const [socketId, player] of Object.entries(room.players)) {
@@ -311,9 +357,8 @@ function processCall(room, position, tricks) {
   if (allCalled) {
     const totalBids = Object.values(room.calls).reduce((a,b) => a+b, 0);
     if (totalBids < 11) {
-      // Reset all calls and start over — notify players
+      // Reset all calls — everyone bids again simultaneously
       room.calls = { N: null, E: null, S: null, W: null };
-      room.callingPlayer = prevCCW(room.dealer); // restart from beginning
       io.to(room.id).emit('bids-reset', {
         message: `Total bids were ${totalBids} — minimum is 11. Please re-bid!`
       });

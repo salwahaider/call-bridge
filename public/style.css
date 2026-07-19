@@ -238,16 +238,18 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
   padding: max(env(safe-area-inset-top, 20px), 40px) 16px 24px;
   background: radial-gradient(ellipse at 50% 30%, #1a3a2a 0%, #050a10 100%);
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
+/* Subtle spade watermark using SVG background (avoids iOS emoji color-ignore bug) */
 #screen-waiting::before {
-  content: '♠';
+  content: '';
   position: absolute;
-  font-size: 60vw;
-  color: rgba(255,255,255,0.02);
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
+  width: 60vw; height: 60vw;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath fill='white' opacity='0.04' d='M50 5 C50 5 10 35 10 55 C10 70 22 78 35 75 C30 85 25 90 15 95 L85 95 C75 90 70 85 65 75 C78 78 90 70 90 55 C90 35 50 5 50 5Z'/%3E%3C/svg%3E") center/contain no-repeat;
   pointer-events: none;
   z-index: 0;
 }
@@ -658,6 +660,63 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 
+/* ════════════════════════════════
+   MOBILE PORTRAIT OVERRIDES
+════════════════════════════════ */
+@media (max-width: 500px) {
+  /* ── Frosted glass panel overlay ──
+     The table fills the whole screen height.
+     The panel floats at the bottom as a blurred glass sheet,
+     letting the green felt table show through behind it. */
+  #screen-game { overflow: hidden; }
+
+  #game-table {
+    /* Full height — panel sits on top via absolute */
+    padding: 4px 2px 200px; /* bottom pad = panel height so south hand stays above it */
+    gap: 1px;
+  }
+
+  #bottom-panel {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 200px;
+    max-height: none;
+    background: rgba(5, 10, 20, 0.78);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    backdrop-filter: blur(22px) saturate(1.4);
+    border-top: 1px solid rgba(255,255,255,0.12);
+  }
+
+  /* Shrink player areas */
+  .player-area { gap: 1px; padding: 2px; }
+
+  /* Shrink sort buttons */
+  .hand-controls { margin-top: 0; gap: 3px; }
+  .hand-controls button { padding: 2px 8px; font-size: 0.55rem; min-height: 18px; }
+
+  /* Shrink name labels */
+  .player-label { padding: 2px 8px 2px 4px; font-size: 0.58rem; }
+
+  /* Tighter bottom panel content */
+  #tab-score { padding: 5px 12px; gap: 1px; }
+  .score-row { padding: 3px 0; font-size: 0.75rem; }
+  .player-score-row { padding: 4px 0; }
+  .ps-avatar { width: 24px; height: 24px; font-size: 0.65rem; }
+  .ps-name { font-size: 0.73rem; }
+  .ps-call { font-size: 0.58rem; }
+  .ps-score { font-size: 0.82rem; padding: 2px 6px; }
+
+  /* Tab bar slightly shorter */
+  .tab-btn { padding: 7px 4px; min-height: 34px; }
+
+  /* Trick/score badges smaller */
+  .tricks-count span { padding: 2px 8px; font-size: 0.58rem; }
+  .trump-badge-center { font-size: 0.58rem; padding: 2px 8px; }
+
+  /* Live scores table more compact */
+  .live-scores { font-size: 0.58rem; padding: 4px 6px; max-width: 170px; }
+}
+
 .tab-bar { display: flex; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
 
 .tab-btn {
@@ -870,6 +929,26 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
   text-transform: uppercase;
 }
 .call-confirm:active { transform: translateY(2px); box-shadow: 0 1px 0 #7a5000; }
+
+.call-view-cards {
+  background: none; border: none;
+  color: rgba(255,255,255,0.35);
+  font-size: 0.78rem; font-family: 'Nunito', sans-serif; font-weight: 600;
+  cursor: pointer; padding: 4px 12px; touch-action: manipulation;
+  letter-spacing: 0.5px;
+}
+.call-view-cards:active { color: rgba(255,255,255,0.7); }
+
+#bid-waiting {
+  font-size: 0.68rem; font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 4px 12px;
+  text-align: center;
+  animation: pop-in 0.2s cubic-bezier(0.34,1.6,0.64,1);
+}
 
 /* ════════════════════════════════
    OVERLAYS

@@ -138,13 +138,18 @@ function tapDeck() {
 function renderWaiting(room) {
   const codeEl = document.getElementById('waiting-room-code');
   codeEl.textContent = room.id;
-  codeEl.onclick = () => {
-    navigator.clipboard.writeText(room.id).then(() => {
+  codeEl.onclick = async () => {
+    const shareText = `Join my Call Bridge game! Room code: ${room.id}\n${window.location.href}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Call Bridge', text: shareText }); } catch (_) {}
+    } else {
+      await navigator.clipboard.writeText(room.id);
       const orig = codeEl.textContent;
       codeEl.textContent = 'Copied!';
       setTimeout(() => { codeEl.textContent = orig; }, 1200);
-    });
+    }
   };
+  codeEl.title = 'Tap to share';
   codeEl.style.cursor = 'pointer';
   document.getElementById('waiting-target').textContent = `First to ${room.targetScore} points wins`;
   document.getElementById('waiting-players').innerHTML = ['N','E','S','W'].map(pos => {
@@ -335,11 +340,26 @@ function showTrickToast(msg) {
 let selectedCall = 2;
 
 function renderCallPopup(room) {
-  const isMyTurn = room.phase === 'calling' && room.callingPlayer === state.myPosition;
+  // Simultaneous bidding: show button if phase is calling and this player hasn't bid yet
+  const needsToBid = room.phase === 'calling' && room.calls[state.myPosition] === null;
+  const waitingForOthers = room.phase === 'calling' && room.calls[state.myPosition] !== null;
+
   const bidBtn = document.getElementById('bid-btn');
-  if (bidBtn) bidBtn.style.display = isMyTurn ? 'flex' : 'none';
-  // Close popup if it's no longer our turn
-  if (!isMyTurn) document.getElementById('call-popup').classList.remove('visible');
+  if (bidBtn) bidBtn.style.display = needsToBid ? 'flex' : 'none';
+
+  // Close popup if player already submitted or phase changed
+  if (!needsToBid) document.getElementById('call-popup').classList.remove('visible');
+
+  // Show "waiting for others" message after submitting
+  const waitEl = document.getElementById('bid-waiting');
+  if (waitEl) {
+    waitEl.style.display = waitingForOthers ? 'block' : 'none';
+    if (waitingForOthers) {
+      const myBid = room.calls[state.myPosition];
+      const pending = ['N','E','S','W'].filter(p => room.calls[p] === null).length;
+      waitEl.textContent = `Your bid: ${myBid} — waiting for ${pending} more player${pending !== 1 ? 's' : ''}…`;
+    }
+  }
 }
 
 function openBidPopup() {
@@ -497,6 +517,21 @@ function requestNewGame() {
   showScreen('screen-waiting');
 }
 
+// ── Reconnect / visibility handling ──
+// When tab comes back to foreground, request fresh room state
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.roomId) {
+    socket.emit('request-room-state', { roomId: state.roomId });
+  }
+});
+
+// On socket reconnect (mobile may drop connection when tab is backgrounded)
+socket.on('connect', () => {
+  if (state.roomId && state.myName && state.myPosition) {
+    socket.emit('rejoin-room', { roomId: state.roomId, name: state.myName, position: state.myPosition });
+  }
+});
+
 // ── Socket Events ──
 socket.on('room-created', ({ roomId }) => { state.roomId = roomId; showScreen('screen-waiting'); });
 
@@ -577,6 +612,11 @@ socket.on('trick-complete', ({ winner, trickCounts }) => {
 
 socket.on('game-over',   data => { state.phase='scoring'; setTimeout(()=>showResultOverlay(data),800); });
 socket.on('player-left', ({ name }) => addChatMsg(`${name} left.`, true));
+socket.on('player-joined-back', ({ name }) => addChatMsg(`${name} rejoined the game.`, true));
+socket.on('rejoin-game', ({ hand }) => {
+  // Restore hand after reconnecting mid-game (room-update will restore all other state)
+  state.myHand = hand;
+});
 socket.on('chat',  msg  => addChatMsg(msg));
 socket.on('error', ({ message }) => {
   if (!state.roomId) showError(message);

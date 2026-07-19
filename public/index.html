@@ -123,6 +123,7 @@
       </div>
 
       <button id="bid-btn" class="bid-cta" onclick="openBidPopup()" style="display:none;">♠ Place Your Bid</button>
+      <div id="bid-waiting" style="display:none;"></div>
     </div>
 
     <!-- Right -->
@@ -179,6 +180,7 @@
       <div class="wheel-scroll" id="wheel-scroll"></div>
     </div>
     <button class="call-confirm" onclick="confirmCall()">Confirm Bid</button>
+    <button class="call-view-cards" onclick="document.getElementById('call-popup').classList.remove('visible')">View Cards ↓</button>
   </div>
 </div>
 
