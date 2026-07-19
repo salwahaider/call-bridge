@@ -535,29 +535,42 @@ function unlockAudio() {
     if (_audioCtx.state === 'suspended') {
       _audioCtx.resume();
     }
+    // iOS requires scheduling a silent buffer to fully unlock audio
+    const buf = _audioCtx.createBuffer(1, 1, 22050);
+    const src = _audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(_audioCtx.destination);
+    src.start(0);
   } catch (_) {}
 }
 
 function _playTones(notes) {
-  try {
-    if (!_audioCtx) return;
-    if (_audioCtx.state === 'suspended') _audioCtx.resume();
-    const ctx = _audioCtx;
-    notes.forEach(([delay, freq, vol, dur]) => {
-      const osc = ctx.createOscillator();
-      const g   = ctx.createGain();
-      osc.connect(g);
-      g.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      const t = ctx.currentTime + delay;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      osc.start(t);
-      osc.stop(t + dur);
-    });
-  } catch (_) {}
+  if (!_audioCtx) return;
+  const schedule = () => {
+    try {
+      const ctx = _audioCtx;
+      notes.forEach(([delay, freq, vol, dur]) => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + delay;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        osc.start(t);
+        osc.stop(t + dur);
+      });
+    } catch (_) {}
+  };
+  // Wait for context to be running before scheduling — resume() is async
+  if (_audioCtx.state === 'running') {
+    schedule();
+  } else {
+    _audioCtx.resume().then(schedule);
+  }
 }
 
 // Rising 4-note fanfare when cards are dealt
