@@ -136,7 +136,16 @@ function tapDeck() {
 }
 
 function renderWaiting(room) {
-  document.getElementById('waiting-room-code').textContent = room.id;
+  const codeEl = document.getElementById('waiting-room-code');
+  codeEl.textContent = room.id;
+  codeEl.onclick = () => {
+    navigator.clipboard.writeText(room.id).then(() => {
+      const orig = codeEl.textContent;
+      codeEl.textContent = 'Copied!';
+      setTimeout(() => { codeEl.textContent = orig; }, 1200);
+    });
+  };
+  codeEl.style.cursor = 'pointer';
   document.getElementById('waiting-target').textContent = `First to ${room.targetScore} points wins`;
   document.getElementById('waiting-players').innerHTML = ['N','E','S','W'].map(pos => {
     const p = room.players.find(pl => pl.position === pos);

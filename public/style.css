@@ -233,9 +233,9 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
 #screen-waiting {
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 16px;
-  padding: 24px 16px;
+  padding: max(env(safe-area-inset-top, 20px), 40px) 16px 24px;
   background: radial-gradient(ellipse at 50% 30%, #1a3a2a 0%, #050a10 100%);
   position: relative;
   overflow: hidden;
@@ -249,7 +249,10 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
+  z-index: 0;
 }
+
+#screen-waiting > * { position: relative; z-index: 1; }
 
 .waiting-logo {
   font-family: 'Cinzel Decorative', serif;
