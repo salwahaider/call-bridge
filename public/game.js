@@ -538,27 +538,52 @@ function unlockAudio() {
   } catch (_) {}
 }
 
-function playDealSound() {
+function _playTones(notes) {
   try {
-    if (!_audioCtx) return; // not yet unlocked
+    if (!_audioCtx) return;
     if (_audioCtx.state === 'suspended') _audioCtx.resume();
     const ctx = _audioCtx;
-    [[0, 523.25, 0.28], [0.14, 659.25, 0.24], [0.28, 783.99, 0.20], [0.42, 1046.5, 0.18]]
-      .forEach(([delay, freq, vol]) => {
-        const osc = ctx.createOscillator();
-        const g   = ctx.createGain();
-        osc.connect(g);
-        g.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        const t = ctx.currentTime + delay;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(vol, t + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-        osc.start(t);
-        osc.stop(t + 0.5);
-      });
+    notes.forEach(([delay, freq, vol, dur]) => {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + delay;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.start(t);
+      osc.stop(t + dur);
+    });
   } catch (_) {}
+}
+
+// Rising 4-note fanfare when cards are dealt
+function playDealSound() {
+  _playTones([
+    [0,    523.25, 0.28, 0.5],
+    [0.14, 659.25, 0.24, 0.5],
+    [0.28, 783.99, 0.20, 0.5],
+    [0.42, 1046.5, 0.18, 0.5],
+  ]);
+}
+
+// Soft double-tap when any trick is collected
+function playTrickSound() {
+  _playTones([
+    [0,    880, 0.18, 0.18],
+    [0.10, 660, 0.14, 0.22],
+  ]);
+}
+
+// Two rising pings when it becomes your turn
+function playYourTurnSound() {
+  _playTones([
+    [0,    880,  0.15, 0.25],
+    [0.12, 1174, 0.18, 0.30],
+  ]);
 }
 
 // ── Reconnect / visibility handling ──
@@ -586,6 +611,7 @@ socket.on('joined', ({ roomId, position }) => {
 });
 
 socket.on('room-update', (room) => {
+  const prevPlayer    = state.currentPlayer;
   state.phase         = room.phase;
   state.scores        = room.scores;
   state.roundNumber   = room.roundNumber;
@@ -595,6 +621,13 @@ socket.on('room-update', (room) => {
   state.players       = room.players;
   state.calls         = room.calls || { N:null,E:null,S:null,W:null };
   state.trickCounts   = room.trickCounts || { N:0,E:0,S:0,W:0 };
+
+  // Chime when it becomes my turn to play (not on initial load)
+  if (room.phase === 'playing' &&
+      room.currentPlayer === state.myPosition &&
+      prevPlayer !== state.myPosition) {
+    playYourTurnSound();
+  }
 
   if (room.phase === 'waiting') { renderWaiting(room); showScreen('screen-waiting'); }
   else { renderGame(room); showScreen('screen-game'); }
@@ -643,6 +676,7 @@ socket.on('card-played', ({ position, card }) => {
 });
 
 socket.on('trick-complete', ({ winner, trickCounts }) => {
+  playTrickSound();
   state.trickCounts  = trickCounts;
   state.tricksPlayed = Object.values(trickCounts).reduce((a,b)=>a+b,0);
   const player = state.players.find(p => p.position === winner);
