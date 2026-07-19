@@ -196,7 +196,7 @@ function renderGame(room) {
     const score = room.scores[p.position] || 0;
     const pct   = Math.max(0, Math.min(100, Math.round(score / (state.targetScore || 25) * 100)));
     const colorIdx  = POS_COLOR[p.position];
-    const callInfo  = call !== null ? `bid ${call}, won ${won}` : 'waiting\u2026';
+    const callInfo  = call !== null ? `bid ${call}, won ${won}` : room.roundNumber === 1 ? `won ${won}` : 'waiting\u2026';
     return `<div class="player-score-row">
       <div class="ps-avatar avatar-${colorIdx}">${p.name[0].toUpperCase()}</div>
       <div class="ps-info">
@@ -254,6 +254,8 @@ function renderLiveScores(room) {
   }
   container.style.display = 'grid';
   while (container.children.length > 3) container.removeChild(container.lastChild);
+  // Update "Bid" column header — hide it in round 1 since there are no bids
+  container.children[1].textContent = room.roundNumber === 1 ? '' : 'Bid';
 
   room.players.forEach(p => {
     const call   = room.calls[p.position];
@@ -522,7 +524,9 @@ socket.on('game-started', ({ hand, dealer, roundNumber, targetScore }) => {
   document.getElementById('tricks-count').style.display = 'none';
   document.getElementById('your-turn-indicator').style.display = 'none';
 
-  addChatMsg(`Round ${roundNumber}! ♠ Spades trump — place your bids!`, true);
+  addChatMsg(roundNumber === 1
+    ? `Round 1! ♠ Spades trump — no bidding this round, just play!`
+    : `Round ${roundNumber}! ♠ Spades trump — place your bids!`, true);
 });
 
 socket.on('bids-reset', ({ message }) => {
