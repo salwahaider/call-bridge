@@ -624,7 +624,6 @@ socket.on('joined', ({ roomId, position }) => {
 });
 
 socket.on('room-update', (room) => {
-  const prevPlayer    = state.currentPlayer;
   state.phase         = room.phase;
   state.scores        = room.scores;
   state.roundNumber   = room.roundNumber;
@@ -635,12 +634,6 @@ socket.on('room-update', (room) => {
   state.calls         = room.calls || { N:null,E:null,S:null,W:null };
   state.trickCounts   = room.trickCounts || { N:0,E:0,S:0,W:0 };
 
-  // Chime when it becomes my turn to play (not on initial load)
-  if (room.phase === 'playing' &&
-      room.currentPlayer === state.myPosition &&
-      prevPlayer !== state.myPosition) {
-    playYourTurnSound();
-  }
 
   if (room.phase === 'waiting') { renderWaiting(room); showScreen('screen-waiting'); }
   else { renderGame(room); showScreen('screen-game'); }
