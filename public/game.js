@@ -78,6 +78,9 @@ function switchTab(name) {
   });
 }
 
+// Unlock audio on any early user interaction (covers non-host players)
+document.addEventListener('pointerdown', unlockAudio, { once: true });
+
 // ── Target score picker ──
 let selectedTarget = 25;
 document.querySelectorAll('.target-btn').forEach(btn => {
@@ -119,6 +122,7 @@ let deckTapped = false;
 function tapDeck() {
   if (deckTapped) return;
   deckTapped = true;
+  unlockAudio(); // unlock Web Audio inside this user gesture so chime works later
   const deck = document.getElementById('deck-stack');
   const hint = document.getElementById('deck-hint');
   hint.textContent = 'Shuffling…';
@@ -519,9 +523,26 @@ function requestNewGame() {
 }
 
 // ── Deal chime ──
+// AudioContext must be created/resumed inside a user gesture (browser autoplay policy).
+// We unlock it when the user taps the deck, then reuse it for the chime.
+let _audioCtx = null;
+
+function unlockAudio() {
+  try {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_audioCtx.state === 'suspended') {
+      _audioCtx.resume();
+    }
+  } catch (_) {}
+}
+
 function playDealSound() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!_audioCtx) return; // not yet unlocked
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    const ctx = _audioCtx;
     [[0, 523.25, 0.28], [0.14, 659.25, 0.24], [0.28, 783.99, 0.20], [0.42, 1046.5, 0.18]]
       .forEach(([delay, freq, vol]) => {
         const osc = ctx.createOscillator();
