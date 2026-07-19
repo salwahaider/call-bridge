@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Call Bridge</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Landing ── -->
+<div id="screen-landing" class="screen active">
+  <div class="bg-suits">
+    <span class="bg-suit" style="left:5%;animation-duration:13s;animation-delay:0s">♠</span>
+    <span class="bg-suit" style="left:22%;animation-duration:17s;animation-delay:3s;color:#e74c3c">♥</span>
+    <span class="bg-suit" style="left:42%;animation-duration:14s;animation-delay:7s;color:#e74c3c">♦</span>
+    <span class="bg-suit" style="left:63%;animation-duration:19s;animation-delay:1s">♣</span>
+    <span class="bg-suit" style="left:82%;animation-duration:11s;animation-delay:9s">♠</span>
+    <span class="bg-suit" style="left:92%;animation-duration:16s;animation-delay:5s;color:#e74c3c">♥</span>
+  </div>
+
+  <div class="game-logo">
+    <h1>Call ♠ Bridge</h1>
+    <div class="logo-suits">♠ <span class="red">♥</span> <span class="red">♦</span> ♣</div>
+  </div>
+
+  <div class="glass-panel">
+    <h2>Create a New Game</h2>
+    <input type="text" id="create-name" placeholder="Your name" maxlength="20" autocomplete="off" />
+    <div class="target-row">
+      <label class="target-label">Play to:</label>
+      <div class="target-options">
+        <button class="target-btn active" data-score="25">25</button>
+        <button class="target-btn" data-score="50">50</button>
+        <button class="target-btn" data-score="75">75</button>
+        <button class="target-btn" data-score="100">100</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btn-create">Create Room</button>
+  </div>
+
+  <div class="divider">— or join an existing game —</div>
+
+  <div class="glass-panel">
+    <h2>Join a Game</h2>
+    <input type="text" id="join-name" placeholder="Your name" maxlength="20" autocomplete="off" />
+    <input type="text" id="join-code" placeholder="Room code (e.g. AB12CD)" maxlength="6"
+      autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+    <button class="btn btn-secondary" id="btn-join">Join Room</button>
+  </div>
+
+  <div class="error-msg" id="landing-error"></div>
+</div>
+
+<!-- ── Waiting Room ── -->
+<div id="screen-waiting" class="screen">
+  <div class="waiting-logo">Call ♠ Bridge</div>
+
+  <div class="room-code-box">
+    <div class="code-label">Room Code</div>
+    <div class="code-value" id="waiting-room-code"></div>
+  </div>
+
+  <div class="target-display" id="waiting-target"></div>
+
+  <div class="seats-grid" id="waiting-players"></div>
+
+  <!-- Animated deck — host taps to deal -->
+  <div id="deck-area" style="display:none;">
+    <p class="deck-hint" id="deck-hint">Tap the deck to shuffle &amp; deal!</p>
+    <div id="deck-stack" onclick="tapDeck()">
+      <div class="deck-card" style="--i:0"></div>
+      <div class="deck-card" style="--i:1"></div>
+      <div class="deck-card" style="--i:2"></div>
+      <div class="deck-card" style="--i:3"></div>
+      <div class="deck-card" style="--i:4"></div>
+    </div>
+  </div>
+
+  <p id="waiting-status"></p>
+</div>
+
+<!-- ── Game ── -->
+<div id="screen-game" class="screen">
+  <div id="game-table">
+    <div class="your-turn-indicator" id="your-turn-indicator" style="display:none;">Your Turn!</div>
+    <div id="trick-toast"></div>
+
+    <!-- Top (partner/opponent) -->
+    <div class="player-area north">
+      <div class="player-label" id="label-north">North</div>
+      <div class="hand-north" id="hand-north"></div>
+    </div>
+
+    <!-- Left -->
+    <div class="player-area west">
+      <div class="player-label" id="label-west">West</div>
+      <div class="hand-west" id="hand-west"></div>
+    </div>
+
+    <!-- Center -->
+    <div id="center-area">
+      <div class="live-scores" id="live-scores" style="display:none;">
+        <span class="ls-header">Player</span>
+        <span class="ls-header" style="text-align:center;">Bid</span>
+        <span class="ls-header" style="text-align:center;">Won</span>
+      </div>
+
+      <div class="trump-badge-center">♠ Spades Always Trump</div>
+
+      <div class="trick-display">
+        <div class="trick-card-n" id="trick-n"></div>
+        <div class="trick-card-w" id="trick-w"></div>
+        <div class="trick-card-e" id="trick-e"></div>
+        <div class="trick-card-s" id="trick-s"></div>
+      </div>
+
+      <div class="tricks-count" id="tricks-count" style="display:none;">
+        <span id="trick-num">Trick 1/13</span>
+        <span id="my-tricks">You: 0</span>
+      </div>
+
+      <button id="bid-btn" class="bid-cta" onclick="openBidPopup()" style="display:none;">♠ Place Your Bid</button>
+    </div>
+
+    <!-- Right -->
+    <div class="player-area east">
+      <div class="player-label" id="label-east">East</div>
+      <div class="hand-east" id="hand-east"></div>
+    </div>
+
+    <!-- Bottom (you) -->
+    <div class="player-area south">
+      <div class="hand-south" id="hand-south"></div>
+      <div class="hand-controls">
+        <button onclick="sortHand('suit')">By Suit</button>
+        <button onclick="sortHand('rank')">By Rank</button>
+      </div>
+      <div class="player-label" id="label-south">You</div>
+    </div>
+  </div>
+
+  <!-- Bottom Panel -->
+  <div id="bottom-panel">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('score')" id="tab-btn-score">Scores</button>
+      <button class="tab-btn"        onclick="switchTab('chat')"  id="tab-btn-chat">Chat</button>
+    </div>
+
+    <div class="tab-content active" id="tab-score">
+      <div class="score-row">
+        <span class="label">Round</span><span class="value" id="game-number">-</span>
+      </div>
+      <div class="score-row">
+        <span class="label">Goal</span><span class="value" id="score-target">-</span>
+      </div>
+      <div id="player-scores"></div>
+    </div>
+
+    <div class="tab-content" id="tab-chat">
+      <div id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Say something..." maxlength="200" />
+        <button class="btn btn-secondary" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Call Popup ── -->
+<div id="call-popup">
+  <div class="call-sheet">
+    <h3>How many tricks will you take?</h3>
+    <p class="call-note">Minimum bid: 2 &nbsp;|&nbsp; ♠ Spades are always trump</p>
+    <div class="wheel-wrapper">
+      <div class="wheel-selector"></div>
+      <div class="wheel-scroll" id="wheel-scroll"></div>
+    </div>
+    <button class="call-confirm" onclick="confirmCall()">Confirm Bid</button>
+  </div>
+</div>
+
+<!-- ── Result Overlay ── -->
+<div id="overlay">
+  <div class="overlay-box" id="overlay-box"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
