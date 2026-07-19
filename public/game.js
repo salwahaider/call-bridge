@@ -178,7 +178,7 @@ function renderWaiting(room) {
   const count = room.players.length;
   document.getElementById('waiting-status').textContent = `${count}/4 players joined`;
 
-  const isHost = room.players[0] && room.players[0].position === state.myPosition;
+  const isHost = room.hostPosition === state.myPosition;
   const deckArea = document.getElementById('deck-area');
   const hint = document.getElementById('deck-hint');
 
@@ -448,7 +448,7 @@ function showResultOverlay(data) {
     const delta = scoreDeltas[pos];
     let dispDelta;
     if (call === null) {
-      dispDelta = `Won ${won} tricks <span style="color:rgba(255,255,255,0.4)">(no score — round 1)</span>`;
+      dispDelta = `Won ${won} trick${won !== 1 ? 's' : ''} → <span class="delta-pos">+${delta}</span>`;
     } else {
       const diff = won - call;
       const reason = diff >= 2 ? '2+ over bid' : diff < 0 ? 'under bid' : 'made it';
@@ -492,8 +492,8 @@ function showResultOverlay(data) {
   const nextBtnLabel = gameOver ? 'Play Again' : 'Next Round';
 
   document.getElementById('overlay-box').innerHTML = `
-    <h2>${gameOver ? 'Game Over!' : firstRound ? 'Round 1 Done!' : `Round ${roundNumber} Done!`}</h2>
-    ${firstRound ? '<p>No scoring in round 1</p>' : ''}
+    <h2>${gameOver ? 'Game Over!' : `Round ${roundNumber} Done!`}</h2>
+    ${firstRound ? '<p style="color:rgba(255,255,255,0.55);font-size:0.85rem;">Round 1 — 1 point per trick won, no bidding</p>' : ''}
     ${winnerSection}
     <div class="score-table">${rows}</div>
     <div class="score-table">
@@ -511,10 +511,33 @@ function showResultOverlay(data) {
 
 function closeOverlay() { document.getElementById('overlay').classList.remove('visible'); }
 function requestNewGame() {
+  if (state.phase !== 'scoring') return; // prevent double-trigger
   socket.emit('new-game', { roomId: state.roomId });
   closeOverlay();
   // Return to waiting screen so host can tap deck again
   showScreen('screen-waiting');
+}
+
+// ── Deal chime ──
+function playDealSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[0, 523.25, 0.28], [0.14, 659.25, 0.24], [0.28, 783.99, 0.20], [0.42, 1046.5, 0.18]]
+      .forEach(([delay, freq, vol]) => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + delay;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.start(t);
+        osc.stop(t + 0.5);
+      });
+  } catch (_) {}
 }
 
 // ── Reconnect / visibility handling ──
@@ -557,6 +580,7 @@ socket.on('room-update', (room) => {
 });
 
 socket.on('game-started', ({ hand, dealer, roundNumber, targetScore }) => {
+  playDealSound();
   state.myHand      = hand;
   state.roundNumber = roundNumber;
   state.targetScore = targetScore;

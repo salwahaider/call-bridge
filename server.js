@@ -136,6 +136,7 @@ function createRoom(roomId, targetScore) {
     positions: { N: null, E: null, S: null, W: null },
     phase: 'waiting',
     targetScore: targetScore || 250,
+    hostPosition: null, // position of the first player who joined — only they can deal
     dealer: null,
     hands: null,
     calls: { N: null, E: null, S: null, W: null },
@@ -156,6 +157,7 @@ function getRoomState(room) {
     id: room.id,
     phase: room.phase,
     targetScore: room.targetScore,
+    hostPosition: room.hostPosition,
     players: Object.values(room.players).map(p => ({ name: p.name, position: p.position })),
     positions: room.positions,
     dealer: room.dealer,
@@ -196,6 +198,9 @@ io.on('connection', (socket) => {
   socket.on('start-game', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) return;
+    // Only the host (first player to join) can deal
+    const sender = room.players[socket.id];
+    if (!sender || sender.position !== room.hostPosition) return;
     if (Object.keys(room.players).length !== 4)
       return socket.emit('error', { message: 'Need 4 players to start' });
     startGame(room);
@@ -303,6 +308,7 @@ function joinRoom(socket, roomId, name) {
   const position = available[0];
   room.positions[position] = socket.id;
   room.players[socket.id] = { id: socket.id, name, position };
+  if (!room.hostPosition) room.hostPosition = position; // first to join = permanent host
   socket.join(roomId);
   socket.emit('joined', { roomId, position, name });
   io.to(roomId).emit('room-update', getRoomState(room));
@@ -368,8 +374,6 @@ function processCall(room, position, tricks) {
       room.currentPlayer = prevCCW(room.dealer); // dealer's right leads first trick
       io.to(room.id).emit('calling-complete', { calls: room.calls });
     }
-  } else {
-    room.callingPlayer = nextCCW(position);
   }
 
   io.to(room.id).emit('room-update', getRoomState(room));
@@ -416,8 +420,11 @@ function endGame(room) {
   const scoreDeltas = {};
 
   ['N','E','S','W'].forEach(pos => {
-    // Round 1 has no calls — no score awarded
-    scoreDeltas[pos] = calls[pos] !== null ? calculateScore(calls[pos], trickCounts[pos]) : 0;
+    // Round 1: no calls, score = tricks won (1 pt each)
+    // Round 2+: standard call-bridge scoring
+    scoreDeltas[pos] = calls[pos] !== null
+      ? calculateScore(calls[pos], trickCounts[pos])
+      : trickCounts[pos];
     room.scores[pos] += scoreDeltas[pos];
   });
 
