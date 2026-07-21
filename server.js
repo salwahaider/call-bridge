@@ -120,15 +120,16 @@ function isValidPlay(hand, card, trick) {
 }
 
 // Scoring:
-//   Exact match (diff === 0) → call × 2  (double!)
-//   +1 over call             → +call points
-//   Under call               → -call points
-//   2+ over call             → -call points
+//   Call 7 and win exactly 7 → +14 (doubled, special bonus)
+//   Exact match (any other)  → +call
+//   +1 over call             → +call
+//   Under call               → -call
+//   2+ over call             → -call
 function calculateScore(call, won) {
   const diff = won - call;
-  if (diff === 0) return call * 2;  // exact match → double
-  if (diff === 1) return call;       // one over → normal
-  return -call;                      // under or 2+ over → penalty
+  if (call === 7 && won === 7) return 14;  // special: 7-call exact = double
+  if (diff >= 0 && diff <= 1) return call; // made it (exact or +1) → normal
+  return -call;                             // under or 2+ over → penalty
 }
 
 function createRoom(roomId, targetScore) {

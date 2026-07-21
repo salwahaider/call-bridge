@@ -459,12 +459,14 @@ function showResultOverlay(data) {
       dispDelta = `Won ${won} trick${won !== 1 ? 's' : ''} → <span class="delta-pos">+${delta}</span>`;
     } else {
       const diff = won - call;
-      if (diff === 0) {
-        dispDelta = `Called ${call}, won ${won} — EXACT! → <span class="delta-pos">+${delta} (doubled)</span>`;
+      const isSpecialDouble = call === 7 && won === 7;
+      if (isSpecialDouble) {
+        dispDelta = `Called 7, won 7 — DOUBLE! → <span class="delta-pos">+${delta}</span>`;
       } else if (delta > 0) {
-        dispDelta = `Called ${call}, won ${won} (+1 allowed) → <span class="delta-pos">+${delta}</span>`;
+        const note = diff === 0 ? '' : ' (+1)';
+        dispDelta = `Called ${call}, won ${won}${note} → <span class="delta-pos">+${delta}</span>`;
       } else {
-        const reason = diff >= 2 ? '2+ over bid' : 'under bid';
+        const reason = diff >= 2 ? '2+ over' : 'under bid';
         dispDelta = `Called ${call}, won ${won} (${reason}) → <span class="delta-neg">${delta}</span>`;
       }
     }

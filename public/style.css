@@ -664,80 +664,108 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
    MOBILE PORTRAIT OVERRIDES
 ════════════════════════════════ */
 @media (max-width: 500px) {
-  /* ── Bigger, more readable cards on mobile ── */
+  /* ── Smaller cards to fit phone screens ── */
   :root {
-    --card-w: 52px;
-    --card-h: 74px;
-    --corner-rank: 0.72rem;
-    --corner-suit: 0.65rem;
-    --center-pip: 1.3rem;
+    --card-w: 42px;
+    --card-h: 60px;
+    --corner-rank: 0.6rem;
+    --corner-suit: 0.54rem;
+    --center-pip: 1.05rem;
   }
 
-  #screen-game { display: flex; flex-direction: column; }
+  /*
+   * Layout: flex column — game table shrinks, panel is fixed at bottom.
+   * The game table's grid (auto/1fr/auto rows) fills exactly the space
+   * above the panel. No absolute positioning, no z-index math.
+   */
+  #screen-game {
+    flex-direction: column;
+    overflow: hidden;
+    /* height: 100dvh already comes from .screen */
+  }
 
   #game-table {
-    padding: 4px 2px 4px;
+    flex: 1 1 0%;   /* take remaining space; 0% basis so it can shrink freely */
+    min-height: 0;  /* allow flex child to shrink below content size */
+    overflow: hidden;
+    padding: 2px;
     gap: 1px;
   }
 
   #bottom-panel {
-    /* Normal flow — game table shrinks to give panel its space, no z-index math needed */
-    flex-shrink: 0;
-    height: 200px;
+    flex: 0 0 auto;                            /* never grow/shrink */
+    height: calc(175px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     max-height: none;
-    background: rgba(5, 10, 20, 0.92);
-    border-top: 1px solid rgba(255,255,255,0.12);
+    background: rgba(5, 10, 20, 0.97);
+    border-top: 1px solid rgba(255,255,255,0.14);
   }
 
-  /* ── South (my) hand: scroll horizontally so cards aren't cramped ── */
+  /* All player areas: prevent grid blowout */
+  .player-area {
+    min-width: 0;
+    min-height: 0;
+    gap: 1px;
+    padding: 1px;
+    overflow: hidden;
+  }
+
+  /* South must scroll, not clip */
+  .player-area.south { overflow: visible; }
+
+  /* ── South (my) hand: swipe left/right to see all cards ── */
   .hand-south {
+    display: flex;
+    width: 100%;
     overflow-x: auto;
     overflow-y: visible;
     justify-content: flex-start;
-    padding: 4px 12px;
+    padding: 2px 0;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
   .hand-south::-webkit-scrollbar { display: none; }
 
-  /* Slightly less overlap so more of each card face is visible */
   .hand-south .card,
   .hand-south .card-back {
-    margin-right: calc(var(--card-w) * -0.36);
+    margin-right: calc(var(--card-w) * -0.38);
     flex-shrink: 0;
   }
   .hand-south .card:last-child,
   .hand-south .card-back:last-child { margin-right: 0; }
 
-  /* Shrink player areas */
-  .player-area { gap: 1px; padding: 2px; }
+  /* North: tighter overlap so 13 backs fit in screen width */
+  .hand-north .card,
+  .hand-north .card-back {
+    margin-right: calc(var(--card-w) * -0.64);
+  }
 
-  /* Shrink sort buttons */
+  /* Compact controls and labels */
   .hand-controls { margin-top: 0; gap: 3px; }
-  .hand-controls button { padding: 2px 8px; font-size: 0.55rem; min-height: 18px; }
+  .hand-controls button { padding: 2px 8px; font-size: 0.54rem; min-height: 18px; }
+  .player-label { padding: 2px 8px 2px 4px; font-size: 0.56rem; }
 
-  /* Shrink name labels */
-  .player-label { padding: 2px 8px 2px 4px; font-size: 0.58rem; }
+  /* Compact bottom panel content */
+  #tab-score { padding: 4px 10px; gap: 1px; }
+  .score-row { padding: 3px 0; font-size: 0.72rem; }
+  .player-score-row { padding: 3px 0; }
+  .ps-avatar { width: 22px; height: 22px; font-size: 0.6rem; }
+  .ps-name { font-size: 0.7rem; }
+  .ps-call { font-size: 0.56rem; }
+  .ps-score { font-size: 0.78rem; padding: 2px 5px; }
+  .score-progress { margin-top: 1px; }
 
-  /* Tighter bottom panel content */
-  #tab-score { padding: 5px 12px; gap: 1px; }
-  .score-row { padding: 3px 0; font-size: 0.75rem; }
-  .player-score-row { padding: 4px 0; }
-  .ps-avatar { width: 24px; height: 24px; font-size: 0.65rem; }
-  .ps-name { font-size: 0.73rem; }
-  .ps-call { font-size: 0.58rem; }
-  .ps-score { font-size: 0.82rem; padding: 2px 6px; }
+  .tab-btn { padding: 6px 4px; min-height: 32px; font-size: 0.65rem; }
 
-  /* Tab bar slightly shorter */
-  .tab-btn { padding: 7px 4px; min-height: 34px; }
+  .tricks-count span { padding: 2px 8px; font-size: 0.56rem; }
+  .trump-badge-center { font-size: 0.56rem; padding: 2px 8px; }
+  .live-scores { font-size: 0.56rem; padding: 3px 5px; max-width: 160px; }
 
-  /* Trick/score badges smaller */
-  .tricks-count span { padding: 2px 8px; font-size: 0.58rem; }
-  .trump-badge-center { font-size: 0.58rem; padding: 2px 8px; }
-
-  /* Live scores table more compact */
-  .live-scores { font-size: 0.58rem; padding: 4px 6px; max-width: 170px; }
+  /* Chat input fits in compact panel */
+  #tab-chat { padding: 5px 8px; gap: 4px; }
+  #chat-messages { font-size: 0.66rem; padding: 5px; min-height: 40px; }
+  .chat-input-row input { padding: 7px 10px; font-size: 0.78rem; }
+  .chat-input-row button { padding: 7px 10px; font-size: 0.78rem; }
 }
 
 .tab-bar { display: flex; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
