@@ -664,28 +664,57 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
    MOBILE PORTRAIT OVERRIDES
 ════════════════════════════════ */
 @media (max-width: 500px) {
+  /* ── Bigger, more readable cards on mobile ── */
+  :root {
+    --card-w: 52px;
+    --card-h: 74px;
+    --corner-rank: 0.72rem;
+    --corner-suit: 0.65rem;
+    --center-pip: 1.3rem;
+  }
+
   /* ── Frosted glass panel overlay ──
      The table fills the whole screen height.
-     The panel floats at the bottom as a blurred glass sheet,
-     letting the green felt table show through behind it. */
+     The panel floats at the bottom as a blurred glass sheet. */
   #screen-game { overflow: hidden; }
 
   #game-table {
-    /* Full height — panel sits on top via absolute */
-    padding: 4px 2px 200px; /* bottom pad = panel height so south hand stays above it */
+    padding: 4px 2px calc(200px + env(safe-area-inset-bottom, 0px));
     gap: 1px;
   }
 
   #bottom-panel {
     position: absolute;
     bottom: 0; left: 0; right: 0;
-    height: 200px;
+    height: calc(200px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     max-height: none;
     background: rgba(5, 10, 20, 0.78);
     -webkit-backdrop-filter: blur(22px) saturate(1.4);
     backdrop-filter: blur(22px) saturate(1.4);
     border-top: 1px solid rgba(255,255,255,0.12);
+    z-index: 20; /* must be above game table cards */
   }
+
+  /* ── South (my) hand: scroll horizontally so cards aren't cramped ── */
+  .hand-south {
+    overflow-x: auto;
+    overflow-y: visible;
+    justify-content: flex-start;
+    padding: 4px 12px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .hand-south::-webkit-scrollbar { display: none; }
+
+  /* Slightly less overlap so more of each card face is visible */
+  .hand-south .card,
+  .hand-south .card-back {
+    margin-right: calc(var(--card-w) * -0.36);
+    flex-shrink: 0;
+  }
+  .hand-south .card:last-child,
+  .hand-south .card-back:last-child { margin-right: 0; }
 
   /* Shrink player areas */
   .player-area { gap: 1px; padding: 2px; }
@@ -797,7 +826,10 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
 
 .chat-input-row { display: flex; gap: 6px; flex-shrink: 0; }
 .chat-input-row input  { flex: 1; font-size: 0.82rem; padding: 10px 14px; border-radius: 10px; }
-.chat-input-row button { padding: 10px 14px; font-size: 0.82rem; border-radius: 10px; }
+.chat-input-row button {
+  padding: 10px 14px; font-size: 0.82rem; border-radius: 10px;
+  min-height: unset; /* override .btn min-height: 50px */
+}
 
 /* ── Your Turn ── */
 .your-turn-indicator {

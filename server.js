@@ -120,13 +120,15 @@ function isValidPlay(hand, card, trick) {
 }
 
 // Scoring:
-//   Exact or +1 over call  → +call points
-//   2 or more over call    → -call points (overbid penalty)
-//   Under call             → -call points
+//   Exact match (diff === 0) → call × 2  (double!)
+//   +1 over call             → +call points
+//   Under call               → -call points
+//   2+ over call             → -call points
 function calculateScore(call, won) {
   const diff = won - call;
-  if (diff >= 0 && diff <= 1) return call;   // made it (exact or 1 over) → +call
-  return -call;                               // under OR 2+ over → -call
+  if (diff === 0) return call * 2;  // exact match → double
+  if (diff === 1) return call;       // one over → normal
+  return -call;                      // under or 2+ over → penalty
 }
 
 function createRoom(roomId, targetScore) {
@@ -361,19 +363,10 @@ function processCall(room, position, tricks) {
 
   const allCalled = ['N','E','S','W'].every(p => room.calls[p] !== null);
   if (allCalled) {
-    const totalBids = Object.values(room.calls).reduce((a,b) => a+b, 0);
-    if (totalBids < 11) {
-      // Reset all calls — everyone bids again simultaneously
-      room.calls = { N: null, E: null, S: null, W: null };
-      io.to(room.id).emit('bids-reset', {
-        message: `Total bids were ${totalBids} — minimum is 11. Please re-bid!`
-      });
-    } else {
-      room.phase = 'playing';
-      room.callingPlayer = null;
-      room.currentPlayer = prevCCW(room.dealer); // dealer's right leads first trick
-      io.to(room.id).emit('calling-complete', { calls: room.calls });
-    }
+    room.phase = 'playing';
+    room.callingPlayer = null;
+    room.currentPlayer = prevCCW(room.dealer); // dealer's right leads first trick
+    io.to(room.id).emit('calling-complete', { calls: room.calls });
   }
 
   io.to(room.id).emit('room-update', getRoomState(room));
@@ -398,16 +391,26 @@ function processPlayCard(room, position, card) {
     const winner = whoWinsTrick(room.currentTrick);
     room.trickCounts[winner]++;
     room.tricks.push({ cards: [...room.currentTrick], winner });
-    room.currentTrick = [];
-    room.currentPlayer = winner; // winner leads next trick
+    // Keep currentTrick intact so clients can see all 4 cards.
+    // Block new plays until the display window passes.
+    room.currentPlayer = null;
 
     io.to(room.id).emit('trick-complete', { winner, trickCounts: room.trickCounts });
+    // Broadcast with all 4 cards still visible and updated trick counts
+    io.to(room.id).emit('room-update', getRoomState(room));
 
-    const totalTricks = Object.values(room.trickCounts).reduce((a, b) => a + b, 0);
-    if (totalTricks === 13) {
-      endGame(room);
-      return;
-    }
+    // After 2 s, clear the trick and let the winner lead
+    setTimeout(() => {
+      room.currentTrick = [];
+      const totalTricks = Object.values(room.trickCounts).reduce((a, b) => a + b, 0);
+      if (totalTricks === 13) {
+        endGame(room);
+      } else {
+        room.currentPlayer = winner;
+        io.to(room.id).emit('room-update', getRoomState(room));
+      }
+    }, 2000);
+    return;
   } else {
     room.currentPlayer = nextCCW(position); // play goes counter-clockwise
   }

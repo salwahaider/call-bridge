@@ -76,6 +76,10 @@ function switchTab(name) {
     document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
     document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === name);
   });
+  if (name === 'chat') {
+    const box = document.getElementById('chat-messages');
+    box.scrollTop = box.scrollHeight;
+  }
 }
 
 // Unlock audio on any early user interaction (covers non-host players)
@@ -344,8 +348,8 @@ function showTrickToast(msg) {
 let selectedCall = 2;
 
 function renderCallPopup(room) {
-  // Simultaneous bidding: show button if phase is calling and this player hasn't bid yet
-  const needsToBid = room.phase === 'calling' && room.calls[state.myPosition] === null;
+  // Simultaneous bidding: show button if phase is calling, round > 1, and this player hasn't bid yet
+  const needsToBid = room.roundNumber > 1 && room.phase === 'calling' && room.calls[state.myPosition] === null;
   const waitingForOthers = room.phase === 'calling' && room.calls[state.myPosition] !== null;
 
   const bidBtn = document.getElementById('bid-btn');
@@ -455,10 +459,14 @@ function showResultOverlay(data) {
       dispDelta = `Won ${won} trick${won !== 1 ? 's' : ''} → <span class="delta-pos">+${delta}</span>`;
     } else {
       const diff = won - call;
-      const reason = diff >= 2 ? '2+ over bid' : diff < 0 ? 'under bid' : 'made it';
-      dispDelta = delta > 0
-        ? `Called ${call}, won ${won} → <span class="delta-pos">+${delta}</span>`
-        : `Called ${call}, won ${won} (${reason}) → <span class="delta-neg">${delta}</span>`;
+      if (diff === 0) {
+        dispDelta = `Called ${call}, won ${won} — EXACT! → <span class="delta-pos">+${delta} (doubled)</span>`;
+      } else if (delta > 0) {
+        dispDelta = `Called ${call}, won ${won} (+1 allowed) → <span class="delta-pos">+${delta}</span>`;
+      } else {
+        const reason = diff >= 2 ? '2+ over bid' : 'under bid';
+        dispDelta = `Called ${call}, won ${won} (${reason}) → <span class="delta-neg">${delta}</span>`;
+      }
     }
     return `<div class="row"><span>${escHtml(p.name)}</span><span>${dispDelta}</span></div>`;
   }).join('');
@@ -657,10 +665,6 @@ socket.on('game-started', ({ hand, dealer, roundNumber, targetScore }) => {
     : `Round ${roundNumber}! ♠ Spades trump — place your bids!`, true);
 });
 
-socket.on('bids-reset', ({ message }) => {
-  state.calls = { N:null,E:null,S:null,W:null };
-  addChatMsg(`⚠ ${message}`, true);
-});
 
 socket.on('call-made', ({ position, tricks }) => {
   state.calls[position] = tricks;
@@ -692,7 +696,6 @@ socket.on('trick-complete', ({ winner, trickCounts }) => {
   const isMe   = winner === state.myPosition;
   showTrickToast(isMe ? `You win! (${won}${call!=null?'/'+call:''})` : `${name.split(' ')[0]} wins!`);
   addChatMsg(`${name} wins trick ${state.tricksPlayed}`, true);
-  setTimeout(() => ['n','e','s','w'].forEach(p => document.getElementById(`trick-${p}`).innerHTML=''), 1100);
 });
 
 socket.on('game-over',   data => { state.phase='scoring'; setTimeout(()=>showResultOverlay(data),800); });
