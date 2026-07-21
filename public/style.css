@@ -673,27 +673,21 @@ input[type="text"]:focus { background: rgba(255,255,255,0.13); border-color: var
     --center-pip: 1.3rem;
   }
 
-  /* ── Frosted glass panel overlay ──
-     The table fills the whole screen height.
-     The panel floats at the bottom as a blurred glass sheet. */
-  #screen-game { overflow: hidden; }
+  #screen-game { display: flex; flex-direction: column; }
 
   #game-table {
-    padding: 4px 2px calc(200px + env(safe-area-inset-bottom, 0px));
+    padding: 4px 2px 4px;
     gap: 1px;
   }
 
   #bottom-panel {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: calc(200px + env(safe-area-inset-bottom, 0px));
+    /* Normal flow — game table shrinks to give panel its space, no z-index math needed */
+    flex-shrink: 0;
+    height: 200px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     max-height: none;
-    background: rgba(5, 10, 20, 0.78);
-    -webkit-backdrop-filter: blur(22px) saturate(1.4);
-    backdrop-filter: blur(22px) saturate(1.4);
+    background: rgba(5, 10, 20, 0.92);
     border-top: 1px solid rgba(255,255,255,0.12);
-    z-index: 20; /* must be above game table cards */
   }
 
   /* ── South (my) hand: scroll horizontally so cards aren't cramped ── */
